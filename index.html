@@ -1,0 +1,415 @@
+<html>
+<head>
+
+  <style>
+   @font-face {
+      font-family: "GeoSans";
+      src: url("assets/GeosansLight.ttf");
+    }
+    html{ color:#ffc; background:#000; font-family:"GeoSans" }
+    body{
+      font-size:30px;
+    }
+    a{
+      color: #fff;
+    }
+    #renderer{
+      position:fixed;
+      top:0px;
+      left:0px;
+    }
+    code{
+      color:#fff;
+      font-size:20px;
+    }
+  </style>
+
+</head>
+<body style="margin:0px">
+
+<script src="lib/three.js"                    ></script>
+<script src="lib/Tween.js"                    ></script>
+<script src="lib/jquery.min.js"               ></script>
+<script src="lib/stats.min.js"                ></script>
+<script src="lib/underscore.js"               ></script>
+<script src="lib/TrackballControls.js"        ></script>
+<script src="lib/ShaderLoader.js"             ></script>
+<script src="lib/ObjectControls.js"           ></script>
+<script src="lib/MouseMoveControls.js"        ></script>
+<script src="lib/PhysicsRenderer.js"          ></script>
+
+
+<script src="lib/AudioController.js"          ></script>
+<script src="lib/Stream.js"                   ></script>
+<script src="lib/UserAudio.js"                ></script>
+
+<script src="lib/AudioBuffer.js"              ></script>
+<script src="lib/BufferedAudio.js"            ></script>
+
+
+
+<script src="Song.js"                         ></script>
+
+
+
+<script>
+
+
+  var scene , camera , renderer, clock , controls, objectControls;
+
+
+  var iPoint;
+
+
+  var shaders = new ShaderLoader( 'shaders' );
+
+  //shaders.load( 'ss-curlFront'    , 'sim'    , 'simulation' );
+
+  shaders.load( 'fs-trace'  , 'trace' , 'fragment' );
+  shaders.load( 'vs-trace'  , 'trace' , 'vertex'   );
+
+  shaders.shaderSetLoaded = function(){
+
+    init();
+    animate();
+
+  }
+
+  var matcap = THREE.ImageUtils.loadTexture('img/rough-aluminium.jpg');
+
+  var normal = THREE.ImageUtils.loadTexture('img/t_n_mesh.png');
+   
+  normal.wrapT = normal.wrapS = THREE.RepeatWrapping;
+
+
+  var songList = [
+    "holdMe",
+    "glistenVox",
+    "lonely",
+    "growSometimes",
+    "oneonta",
+    "midnight",
+    "forPeter"
+  ];
+
+  var titleList = [
+    "Hold Me",
+    "Glisten",
+    "Lonely",
+    "Grow Sometimes",
+    "Oneonta",
+    "Midnight",
+    "For Peter"
+  ];
+
+  var songs =[];
+
+  var activeLink = undefined;
+  var hoveredLink = undefined;
+
+  var uniforms = {
+    t_audio:  { type:"t"  , value : null },
+    dT:       { type:"f"  , value : 0             },
+    time:     { type:"f"  , value : 0             },
+    lightPos: { type:"v3" , value : null          },
+    iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
+    t_matcap: { type:"t", value: matcap},
+    t_normal: { type:"t", value: normal},
+
+    links: { type:"v4v" , value:[] },
+    activeLink: { type:"v4" , value:new THREE.Vector4() },
+    hoveredLink: { type:"v4" , value:new THREE.Vector4() }
+  }
+
+  G = {}
+  G.v1 = new THREE.Vector3();
+  G.v2 = new THREE.Vector3();
+
+
+  TWEEN.origTween = TWEEN.Tween;
+  TWEEN.Tween = function (options){
+    var res = new TWEEN.origTween(options);
+    res.easing(TWEEN.Easing.Quadratic.InOut);
+    return res;
+  };
+
+
+  /*
+
+     Setting up Audio
+
+  */
+  var audio = new AudioController();
+
+  var stream = new Stream( "audio/glistenVox.mp3" , audio.ctx , audio.gain );
+
+  //var userAudio = new UserAudio( audio.ctx , audio.gain);
+
+  //audio.mute.gain.value = 0;
+  uniforms.t_audio.value = audio.texture;
+
+  var v1 = new THREE.Vector3();
+  
+  function init(){
+
+
+
+      /*
+
+         Default threejs stuff!
+
+      */
+      scene = new THREE.Scene();
+
+      var ar = window.innerWidth / window.innerHeight;
+
+      camera = new THREE.PerspectiveCamera( 40, ar , .01, 100 );
+      camera.position.z = 5;
+
+      renderer = new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize( window.innerWidth, window.innerHeight );
+      //renderer.setPixelRatio( 4.5 )
+
+      renderer.domElement.id = "renderer"
+      document.body.appendChild( renderer.domElement );
+
+
+      objectControls = new ObjectControls( camera );
+
+
+      controls = new THREE.TrackballControls( camera );
+
+      controls = new THREE.MouseMoveControls( camera );
+      //controls.noRotate = true;
+
+
+      stats = new Stats();
+      stats.domElement.style.position = "absolute";
+      stats.domElement.style.left = "0px";
+      stats.domElement.style.bottom = "-30px";
+      stats.domElement.style.zIndex = "999";
+      document.body.appendChild( stats.domElement );
+
+
+      window.addEventListener( 'resize', onWindowResize, false );
+
+      clock = new THREE.Clock();
+
+
+      var geo = new THREE.IcosahedronGeometry( .3 , 1 );
+      var mat = new THREE.MeshNormalMaterial();
+
+      for( var i = 0; i< songList.length; i++){
+
+       
+        var song = new Song( objectControls , i , titleList[i] , songList[i] , geo , mat );
+        var angle = (i / songList.length) * Math.PI  * .6
+        song.position.x = 1.5 * Math.sin( angle );
+        song.position.y = 1.5 * Math.cos( angle );
+
+
+        scene.add( song.body );
+
+
+        songs.push( song );
+
+        uniforms.links.value.push( new THREE.Vector4() );
+
+
+      }
+
+
+
+
+
+
+
+
+      var geo = new THREE.CubeGeometry( 50 , 50 , 4 );
+      var mat = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: shaders.vs.trace,
+        fragmentShader: shaders.fs.trace,
+      })
+
+      //mat = new THREE.MeshNormalMaterial();
+      mainBody = new THREE.Mesh( geo , mat );
+      scene.add( mainBody );
+
+
+      mouse = new THREE.Mesh( new THREE.IcosahedronGeometry( .01 , 1 ), new THREE.MeshNormalMaterial());
+
+      //scene.add( mouse );
+
+
+      var geo = new THREE.PlaneGeometry( 100000 , 100000 );
+      var mat = new THREE.MeshNormalMaterial({side: THREE.DoubleSide, opacity: 0, transparent: true});
+      intersectionPlane = new THREE.Mesh( geo , mat );
+      //intersectionPlane.visible = false;
+      //scene.add( intersectionPlane );
+
+
+  }
+
+  function animate(){
+
+    requestAnimationFrame( animate );
+    mainBody.updateMatrixWorld();
+
+
+
+    uniforms.iModelMat.value.getInverse( mainBody.matrixWorld );
+
+    for( var i = 0 ; i < songs.length; i++ ){
+
+      v1.copy( songs[i].position );
+
+      v1.applyMatrix4( uniforms.iModelMat.value );
+
+      uniforms.links.value[i].x = v1.x;
+      uniforms.links.value[i].y = v1.y;
+      uniforms.links.value[i].z = v1.z;
+
+      // TODO: set to if song hovered / played / etc
+      uniforms.links.value[i].w = songs[i].hovered;
+
+    }
+
+    uniforms.dT.value = clock.getDelta();
+    uniforms.time.value += uniforms.dT.value;
+
+    if( hoveredLink ){
+      uniforms.hoveredLink.value.x = hoveredLink.position.x;
+      uniforms.hoveredLink.value.y = hoveredLink.position.y;
+      uniforms.hoveredLink.value.z = hoveredLink.position.z;
+      uniforms.hoveredLink.value.w = 1;
+    }else{
+      uniforms.hoveredLink.value.x = 0;
+      uniforms.hoveredLink.value.y = 0;
+      uniforms.hoveredLink.value.z = 0;
+      uniforms.hoveredLink.value.w = 0;
+    }
+
+
+    // Tween our activeLink uniform to actual uniform
+    if( activeLink ){
+
+      G.v1.copy( activeLink.position );
+
+      G.v2.x = uniforms.activeLink.value.x;
+      G.v2.y = uniforms.activeLink.value.y;
+      G.v2.z = uniforms.activeLink.value.z;
+
+      G.v1.copy( G.v2 );
+
+      G.v1.sub(  activeLink.position );
+
+      G.v1.multiplyScalar( -.1 );
+
+      //G.v2.copy( activeLink.position );
+      G.v1.add( G.v2 );
+
+
+      uniforms.activeLink.value.x = G.v1.x;
+      uniforms.activeLink.value.y = G.v1.y;
+      uniforms.activeLink.value.z = G.v1.z;
+      uniforms.activeLink.value.w = 1;
+
+    }else{
+      uniforms.activeLink.value.x = 0;
+      uniforms.activeLink.value.y = 0;
+      uniforms.activeLink.value.z = 0;
+      uniforms.activeLink.value.w = 0;
+    }
+
+
+
+    //intersectionPlane.lookAt( camera.position );
+
+
+
+   // iPoint = objectControls.raycaster.intersectObject( intersectionPlane );
+    //1console.log( iPoint );
+
+    //if( iPoint[0] ) mouse.position.copy( iPoint[0].point );
+
+
+
+    controls.update();
+    objectControls.update();
+
+    audio.update();
+
+    TWEEN.update();
+   
+
+    renderer.render( scene , camera );
+    stats.update();
+
+
+
+  }
+
+
+
+  function onWindowResize() {
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+   // grain.play();
+
+  }
+
+
+ function switchStream( newStream  ){
+
+  var s = { v : stream.gain.gain.value } 
+  var e = { v : 0 }
+  var tween = new TWEEN.Tween( s ).to( e , 500 );
+
+  this.tweenTMP = s;
+  tween.audio = this.audio
+  tween.onUpdate(function(){
+    stream.gain.gain.value = this.tweenTMP.v;
+    console.log( this.tweenTMP.v );
+  }.bind( this));
+
+  tween.onComplete( function(){
+
+
+    console.log('ss')
+    stream.audio.src = newStream;
+
+    var t = new TWEEN.Tween({ v: 0 }).to( { v: 1 } , 500 );
+
+    t.onUpdate(function(e){
+      //console.log( e );
+      stream.gain.gain.value = e
+      //console.log( e.v );
+    }.bind( this));
+
+    t.onComplete( function(){
+
+      console.log('sss')
+
+      stream.play();
+
+    })
+
+    t.start();
+  })
+
+  tween.start();
+
+}
+
+
+</script>
+ 
+
+
+
+</body>
+<html>
