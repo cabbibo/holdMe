@@ -13,6 +13,10 @@ function Song( controls , id , title , file , geo , mat ){
 
   this.audio = audio;
 
+  this.texture = textCreator.createTexture( title ,  {
+    size: .03
+  });
+
   this.file = file;
   this.title = title;
 
@@ -48,6 +52,9 @@ Song.prototype.select = function(){
 
   if( activeLink !== this ){
     var file = "audio/" + this.file + ".mp3";
+
+    uniforms.t_text.value = this.texture;
+    uniforms.textRatio.value = this.texture.scaledWidth;
 
     switchStream( file );
 

@@ -7,6 +7,8 @@ uniform vec4 hoveredLink;
 
 uniform sampler2D t_matcap;
 uniform sampler2D t_normal;
+uniform sampler2D t_text;
+uniform float textRatio;
 
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
@@ -37,13 +39,18 @@ const float PI = 3.14159;
 
 
 $smoothU
+$opU
 $sdCapsule
+$sdBox
+
 
 
 //--------------------------------
 // Modelling 
 //--------------------------------
 vec2 map( vec3 pos ){  
+
+    vec3 og = pos;
 
     vec2 res = vec2( 1000000. , 0. );
 
@@ -78,6 +85,13 @@ vec2 map( vec3 pos ){
     vec2 centerBlob = vec2( length( pos  ) - .4 , 1. );
 
     res = smoothU( res , centerBlob , .2 );
+
+
+
+    //text
+
+    float text = sdBox( og - vec3( 0. , -1. , 0. ) , vec3( textRatio * .2 , .2 , .01 ));
+    res = opU( res , vec2( text , 100.));
 
     return res;
     
@@ -122,9 +136,25 @@ void main(){
 
     col *= hsv( res.y * .1 , 1. , 1. );
 
+    if( res.y >= 90. ){
+
+      vec2 lookup = p.xy;
+      //lookup.x += .5;
+      lookup.x /= textRatio;
+      lookup.x /= .4;
+      lookup.x += .5;
+      lookup.y += 1.2;
+      lookup.y *= 2.2;
+      //lookup.y *= 1.4;
+
+      col *= texture2D( t_text , lookup ).xyz;
+      //col += vec3( 1.1 );
+    }
+
     //col -= texture2D( t_audio , vec2(  abs( n.x ) , 0. ) ).xyz;
 
   }
+
 
 
   if( abs( vUv.x - .5)> .48 || abs( vUv.y - .5)> .48 ){

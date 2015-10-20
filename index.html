@@ -46,6 +46,8 @@
 <script src="lib/AudioBuffer.js"              ></script>
 <script src="lib/BufferedAudio.js"            ></script>
 
+<script src="lib/TextCreator.js"              ></script>
+
 
 
 <script src="Song.js"                         ></script>
@@ -115,6 +117,8 @@
     iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
     t_matcap: { type:"t", value: matcap},
     t_normal: { type:"t", value: normal},
+    t_text:   { type:"t", value: null },
+    textRatio: {type:"f", value: 1 },
 
     links: { type:"v4v" , value:[] },
     activeLink: { type:"v4" , value:new THREE.Vector4() },
@@ -153,6 +157,16 @@
   function init(){
 
 
+      textCreator =  new TextCreator( 100 );
+
+
+      test = textCreator.createTexture( "test" , {
+        size: .03
+      });
+
+      uniforms.t_text.value = test;
+
+      console.log( test );
 
       /*
 
