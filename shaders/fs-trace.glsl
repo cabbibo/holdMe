@@ -9,6 +9,7 @@ uniform sampler2D t_matcap;
 uniform sampler2D t_normal;
 uniform sampler2D t_text;
 uniform float textRatio;
+uniform float interfaceRadius;
 
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
@@ -22,6 +23,8 @@ varying vec3 vMPos;
 
 varying vec2 vUv;
 
+vec3 bulbPos[5];
+
 
 $uvNormalMap
 $semLookup
@@ -31,10 +34,12 @@ $hsv
 // Branch Code stolen from : https://www.shadertoy.com/view/ltlSRl
 // Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
 
-const float MAX_TRACE_DISTANCE = 5.0;             // max trace distance
+const float MAX_TRACE_DISTANCE = 10.0;             // max trace distance
 const float INTERSECTION_PRECISION = 0.01;        // precision of the intersection
 const int NUM_OF_TRACE_STEPS = 25;
 const float PI = 3.14159;
+
+const vec3 moonPos = vec3( -3. , 3. , -3.);
 
 
 
@@ -42,8 +47,54 @@ $smoothU
 $opU
 $sdCapsule
 $sdBox
+$sdSphere
+$sdHexPrism
 
 
+
+float centerBlob1( vec3 pos  ){
+
+  //pos.x += .1 * sin( pos.x * 20. );
+  //pos.y += .1 * sin( pos.y * 20. );
+  //pos.z += .1 * sin( pos.z * 20. );
+
+  float dis = length( texture2D( t_audio , vec2( length( pos ), 0.) ) );
+
+  float b = sdBox( pos , vec3( .4 ) );
+ 
+  return  b - dis * .2;
+
+
+}
+
+
+
+float centerBlob2( vec3 pos  ){
+
+  float m = 100000.;
+
+  float dis = length( texture2D( t_audio , vec2( abs(sin(length( pos ) * 2.)), 0.) ) );
+
+  for( int i = 0; i < 5; i++ ){
+
+    float d = sdSphere( pos - bulbPos[i], .2 + dis * .1 );
+
+    m = smoothU( vec2( m , 0. ) , vec2( d , 0. ) , .2 ).x;
+
+  }
+ 
+  return  m; //b - dis * .2;
+}
+
+float centerBlob3( vec3 pos  ){
+
+  float dis = length( texture2D( t_audio , vec2( abs(sin(length( pos ) * 2.)), 0.) ) );
+
+  float d = sdHexPrism( pos , vec2( .2 + dis * .1 , 1. + dis * .1  )) ;
+
+ 
+  return  d; //b - dis * .2;
+}
 
 //--------------------------------
 // Modelling 
@@ -56,39 +107,40 @@ vec2 map( vec3 pos ){
 
 
 
+
     for( int i = 0; i < 7; i++ ){
-      res = smoothU( res , vec2( length( pos  - links[i].xyz ) - .2 , float( i ) + 10. ) , .1 );
+      float c = sdSphere( pos  - links[i].xyz , .25 );
+      res = smoothU( res , vec2(  c , float( i ) + 10. ) , .1 );
     }
 
 
     vec2 caps;
 
     if( hoveredLink.w > .1 ){
-      caps = vec2( sdCapsule( pos , hoveredLink.xyz ,  hoveredLink.xyz * .8 , .1 ) , 30. );
-      res = smoothU( res , caps , .2 ) ;
+      caps = vec2( sdCapsule( pos , hoveredLink.xyz ,  hoveredLink.xyz * .8 , .03 ) , 30. );
+      res = smoothU( res , caps , .1 ) ;
     }
 
 
 
     // interface tracing
     if( activeLink.w > .1 ){
-      caps = vec2( sdCapsule( pos , activeLink.xyz ,  vec3( 0. ) , .1 ) , 20. );
-      res = smoothU( res , caps , .2 ) ;
+      caps = vec2( sdCapsule( pos , normalize( activeLink.xyz ) * 1.9 ,  vec3( 0. ) , .01 ) , 20. );
+      res = smoothU( res , caps , .3 ) ;
     }
 
 
-    pos.x += .1 * sin( pos.x * 20. );
-    pos.y += .1 * sin( pos.y * 10. );
-    pos.z += .1 * sin( pos.z * 10. );
-
  
-    vec2 centerBlob = vec2( length( pos  ) - .4 , 1. );
+    vec2 cb = vec2( centerBlob1( pos ), 1. );
 
-    res = smoothU( res , centerBlob , .2 );
+    res = smoothU( res , cb , .8 );
 
 
 
     //text
+
+    float moon = sdSphere( og -  moonPos , 2.4 );
+    res = opU( res , vec2( moon , 1000.));
 
     float text = sdBox( og - vec3( 0. , -1. , 0. ) , vec3( textRatio * .2 , .2 , .01 ));
     res = opU( res , vec2( text , 100.));
@@ -107,7 +159,20 @@ $calcAO
 
 void main(){
 
-  vec3 fNorm = uvNormalMap( t_normal , vPos , vUv , vNorm , .6 , -.1 );
+  for( int i = 0; i < 5; i++ ){
+
+    float l = float( i );
+
+    vec3 p = vec3( sin( time * ( l + 1. ) * .1 + l ),  cos( time * ( 5. -  l )  * .02  + l ) , sin( .02 * time * ( 3. + l ) + l ) );
+
+    p *= .8;
+
+    bulbPos[i] = p;
+
+
+  }
+
+  vec3 fNorm = uvNormalMap( t_normal , vPos , vUv , vNorm , 10.6 , .4 );
 
   vec3 ro = vPos;
   vec3 rd = normalize( vPos - vCam );
@@ -119,7 +184,7 @@ void main(){
 
   //col += fNorm * .5 + .5;
 
-  vec3 refr = refract( rd , fNorm , 1. / 1.) ;
+  vec3 refr = refract( rd , fNorm , 1. / 1.2 ) ;
 
   vec2 res = calcIntersection( ro , refr );
 
@@ -136,7 +201,7 @@ void main(){
 
     col *= hsv( res.y * .1 , 1. , 1. );
 
-    if( res.y >= 90. ){
+    if( res.y == 100. ){
 
       vec2 lookup = p.xy;
       //lookup.x += .5;
@@ -149,6 +214,10 @@ void main(){
 
       col *= texture2D( t_text , lookup ).xyz;
       //col += vec3( 1.1 );
+    }
+
+    if( res.y == 1000. ){
+      col = vec3( pow( 1. - dot( -n , rd ) , 4.) );
     }
 
     //col -= texture2D( t_audio , vec2(  abs( n.x ) , 0. ) ).xyz;

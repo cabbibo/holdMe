@@ -79,7 +79,8 @@
 
   var matcap = THREE.ImageUtils.loadTexture('img/rough-aluminium.jpg');
 
-  var normal = THREE.ImageUtils.loadTexture('img/t_n_mesh.png');
+  //var normal = THREE.ImageUtils.loadTexture('img/t_n_mesh.png');
+  var normal = THREE.ImageUtils.loadTexture('img/n_water.jpg');
    
   normal.wrapT = normal.wrapS = THREE.RepeatWrapping;
 
@@ -122,12 +123,17 @@
 
     links: { type:"v4v" , value:[] },
     activeLink: { type:"v4" , value:new THREE.Vector4() },
-    hoveredLink: { type:"v4" , value:new THREE.Vector4() }
+    hoveredLink: { type:"v4" , value:new THREE.Vector4() },
+
+    interfaceRadius: {type:"f", value:2 }
   }
 
   G = {}
   G.v1 = new THREE.Vector3();
   G.v2 = new THREE.Vector3();
+
+
+
 
 
   TWEEN.origTween = TWEEN.Tween;
@@ -178,9 +184,9 @@
       var ar = window.innerWidth / window.innerHeight;
 
       camera = new THREE.PerspectiveCamera( 40, ar , .01, 100 );
-      camera.position.z = 5;
+      camera.position.z = 6;
 
-      renderer = new THREE.WebGLRenderer({antialias:true});
+      renderer = new THREE.WebGLRenderer();
       renderer.setSize( window.innerWidth, window.innerHeight );
       //renderer.setPixelRatio( 4.5 )
 
@@ -213,13 +219,14 @@
       var geo = new THREE.IcosahedronGeometry( .3 , 1 );
       var mat = new THREE.MeshNormalMaterial();
 
+
       for( var i = 0; i< songList.length; i++){
 
        
         var song = new Song( objectControls , i , titleList[i] , songList[i] , geo , mat );
-        var angle = (i / songList.length) * Math.PI  * .6
-        song.position.x = 1.5 * Math.sin( angle );
-        song.position.y = 1.5 * Math.cos( angle );
+        var angle = (i / songList.length) * Math.PI  * .6 + Math.PI / 4;
+        song.position.x = uniforms.interfaceRadius.value * Math.sin( angle );
+        song.position.y = uniforms.interfaceRadius.value * Math.cos( angle );
 
 
         scene.add( song.body );
