@@ -144,7 +144,7 @@ void main(){
       lookup.x /= .4;
       lookup.x += .5;
       lookup.y += 1.2;
-      lookup.y *= 2.2;
+      lookup.y *= 2.3;
       //lookup.y *= 1.4;
 
       col *= texture2D( t_text , lookup ).xyz;
