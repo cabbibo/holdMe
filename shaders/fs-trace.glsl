@@ -56,16 +56,12 @@ vec2 map( vec3 pos ){
 
     vec2 caps;
 
-
-
     if( hoveredLink.w > .1 ){
       caps = vec2( sdCapsule( pos , hoveredLink.xyz ,  hoveredLink.xyz * .8 , .1 ) , 30. );
       res = smoothU( res , caps , .2 ) ;
     }
 
-   pos.x += .1 * sin( pos.x * 20. );
-    pos.y += .1 * sin( pos.y * 10. );
-    pos.z += .1 * sin( pos.z * 10. );
+
 
     // interface tracing
     if( activeLink.w > .1 ){
@@ -73,9 +69,10 @@ vec2 map( vec3 pos ){
       res = smoothU( res , caps , .2 ) ;
     }
 
-  
 
-
+    pos.x += .1 * sin( pos.x * 20. );
+    pos.y += .1 * sin( pos.y * 10. );
+    pos.z += .1 * sin( pos.z * 10. );
 
  
     vec2 centerBlob = vec2( length( pos  ) - .4 , 1. );
